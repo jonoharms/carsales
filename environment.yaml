@@ -1,0 +1,13 @@
+name: carsales
+
+dependencies:
+  - python=3.11
+  - numpy
+  - xlsxwriter
+  - pandas
+  - plotly
+  - streamlit
+  - pip
+  - matplotlib
+  - pip:
+    - selenium
