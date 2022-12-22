@@ -11,6 +11,7 @@ import os.path
 import numpy
 from collections import namedtuple
 import matplotlib.pyplot as plt
+import re
 
 
 def get_average(list):
@@ -151,15 +152,18 @@ def main():
                 'href'
             )
             car_title = car.find_elements(By.TAG_NAME, 'h3')[0].text
-            
+
             print('Adding', car_title)
             car_year = int(car_title.split(' ')[0])
-            car_price_text = car.find_elements(By.CSS_SELECTOR, 'div.price')[0].text
-
-            int(
-                .strip('$*')
-                .replace(',', '')
-            )
+            car_price_text = car.find_elements(By.CSS_SELECTOR, 'div.price')[
+                0
+            ].text
+            car_price_match = re.match(r'\$(\d+,\d+)', car_price_text)
+            if car_price_match is not None:
+                price = car_price_match.groups()[0].replace(',', '')
+                car_price = int(price)
+            else:
+                car_price = None
             car_kms = int(
                 car.find_elements(By.CSS_SELECTOR, 'div.feature-text')[0]
                 .text.strip(' km')
