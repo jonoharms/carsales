@@ -12,6 +12,9 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+import time
 
 
 @define
@@ -45,6 +48,11 @@ class Car:
             item.get_attribute('data-type'): item.text
             for item in details_items
         }
+        details['id'] = card.get_attribute('id')
+        details['category'] = card.get_attribute('data-webm-vehcategory')
+        details['make'] = card.get_attribute('data-webm-make')
+        details['model'] = card.get_attribute('data-webm-model')
+        details['state'] = card.get_attribute('data-webm-state')
 
         car = cls(
             link,
@@ -81,9 +89,11 @@ def main():
         + '.)_.Year.range(2007..).)'
     )
 
-    num_search_results = int(
-        driver.find_element(By.CLASS_NAME, 'title').text.split(' ')[0]
+    title = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.CLASS_NAME, 'title'))
     )
+
+    num_search_results = int(title.text.split(' ')[0])
 
     current_page = 0
     car_list = []
@@ -96,7 +106,7 @@ def main():
         car_list.extend(
             [Car.from_card_webelement(card) for card in page_listings]
         )
-
+        time.sleep(2)
         if len(car_list) < num_search_results:
             pagination_div = driver.find_element(
                 By.CSS_SELECTOR, 'ul.pagination'
