@@ -1,20 +1,17 @@
+import configparser
+import datetime
+import os.path
+import re
+from typing import Optional, Self
+
+import matplotlib.pyplot as plt
+import numpy
+from attrs import define
 from selenium import webdriver
 
-from selenium.webdriver.firefox.options import Options
-
-# from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.remote.webelement import WebElement
-import xlsxwriter
-import datetime
-import configparser
-import os.path
-import numpy
-from collections import namedtuple
-import matplotlib.pyplot as plt
-import re
-from attrs import define
-from typing import Optional, Self
 
 
 @define
@@ -71,9 +68,6 @@ def main():
     options = Options()
     driver = webdriver.Firefox(options=options)
 
-    transmission_switch = True
-    price_switch = True
-
     # setup config file. if it exists, load it
     config = configparser.ConfigParser()
     if os.path.isfile('carsales_calc.ini'):
@@ -121,28 +115,10 @@ def main():
         with open('carsales_calc.ini', 'w') as configfile:
             config.write(configfile)
 
-    if transmission_switch:
-        transmission_string = (
-            '%26GenericGearType%3D%5B' + user_transmission + '%5D%29'
-        )
-    else:
-        transmission_string = ''
-
-    if price_switch:
-        price_string = (
-            '%26Price%3Drange%5B'
-            + str(price_min)
-            + '..'
-            + str(price_max)
-            + '%5D%29'
-        )
-    else:
-        price_string = ''
-
     print('Enter car make and model')
     # car_choice = input('> ')
 
-    user_make, user_model = ('Ford', 'Mondeo')
+    user_make, user_model = ('Skoda', 'Superb')
 
     print('Searching Carsales')
     driver.get(
@@ -157,116 +133,40 @@ def main():
         driver.find_element(By.CLASS_NAME, 'title').text.split(' ')[0]
     )
 
-    if num_search_results > 24:
-        pagination_div = driver.find_element(By.CSS_SELECTOR, 'div.pagination')
-        page_count = int(
-            pagination_div.find_element(By.TAG_NAME, 'p').text.split(' ')[1]
-        )
-        next_page_link = pagination_div.find_element(
-            By.PARTIAL_LINK_TEXT, 'Next'
-        ).get_attribute('href')
-    else:
-        page_count = 1
-    current_page = 1
+    current_page = 0
     car_list = []
 
-    while current_page <= page_count:
+    while True:
         print('Loading page', str(current_page))
         page_listings = driver.find_elements(
             By.CSS_SELECTOR, 'div.listing-item'
         )
-        real_page_listings = []
-        for card in page_listings:
-            if not 'contentcards' in card.get_attribute(
-                'class'
-            ) and not 'gcad' in card.get_attribute('class'):
-                real_page_listings.append(card)
-        car_list = [
-            Car.from_card_webelement(card) for card in real_page_listings
-        ]
+        car_list.extend(
+            [Car.from_card_webelement(card) for card in page_listings]
+        )
 
-        if current_page < page_count:
+        if len(car_list) < num_search_results:
             pagination_div = driver.find_element(
-                By.CSS_SELECTOR, 'div.pagination'
+                By.CSS_SELECTOR, 'ul.pagination'
             )
             next_page_link = pagination_div.find_element(
                 By.PARTIAL_LINK_TEXT, 'Next'
             ).get_attribute('href')
             driver.get(next_page_link)
+        else:
+            break
+
         current_page += 1
 
-    N = 50
-    x = [x['year'] for x in car_list]
-    # x_axis.count(year)
-    y = [x['price'] for x in car_list]
-    area = numpy.pi * (5 * numpy.random.rand(N)) ** 2
-
-    plt.scatter(x, y, s=area)
+    x = [x.year for x in car_list]
+    y = [x.price for x in car_list]
+    plt.scatter(x, y)
     z = numpy.polyfit(x, y, 1)
     p = numpy.poly1d(z)
 
     plt.plot(x, p(x), 'r--')
 
     plt.show()
-    # by_year = []
-    # years_done = []
-    # for car in car_list:
-    #     year_list = []
-    #     for sublist in car_list:
-    #         if car[2] == sublist[2]:
-    #             year_list.append(sublist)
-    #     if not car[2] in years_done:
-    #         by_year.append(year_list)
-    #         years_done.append(car[2])
-    #
-    # # link, title, year, kms, price
-    # now = datetime.datetime.now()
-    # now_string = now.strftime("%d-%m-%y %H.%M")
-    # workbook_filename = user_make + ' ' + user_model + ' ' + now_string + '.xlsx'
-    # print("Creating spreadsheet", workbook_filename)
-    # workbook = xlsxwriter.Workbook(workbook_filename)
-    # worksheet = workbook.add_worksheet()
-    #
-    # bold = workbook.add_format({'bold': 1})
-    # url_format = workbook.add_format({'font_color': 'blue','underline': 1})
-    #
-    # worksheet.write('A1', 'Link', bold)
-    # worksheet.write('B1', 'Year', bold)
-    # worksheet.write('C1', 'Kilometres', bold)
-    # worksheet.write('D1', 'Price', bold)
-    #
-    # row = 1
-    # col = 0
-    #
-    # for car in car_list:
-    #     row = car_list.index(car) + 1
-    #     worksheet.write_url(row, col, car.link, url_format, car.title)
-    #     worksheet.write_number(row, col + 1, car.year)
-    #     worksheet.write_number(row, col + 2, car.kms)
-    #     worksheet.write_number(row, col + 3, car.price)
-    #
-    #
-    # worksheet2 = workbook.add_worksheet()
-    #
-    # worksheet2.write('A1', 'Year', bold)
-    # worksheet2.write('B1', 'Average', bold)
-    # worksheet2.write('C1', 'Count', bold)
-    #
-    # row = 1
-    # col = 0
-    #
-    # for year in by_year:
-    #     row = by_year.index(year) + 1
-    #     average = get_average(year)
-    #     car_num = len(year)
-    #     worksheet2.write_number(row, col, year[0][2])
-    #     worksheet2.write_number(row, col + 1, average)
-    #     worksheet2.write_number(row, col + 2, car_num)
-    #
-    #
-    #
-    # print("Saving spreadsheet")
-    # workbook.close()
 
 
 if __name__ == '__main__':
