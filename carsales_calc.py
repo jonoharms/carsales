@@ -25,32 +25,34 @@ class Car:
 
     @classmethod
     def from_card_webelement(cls, card: WebElement) -> Self:
-        car_link = card.find_element(By.TAG_NAME, 'a').get_attribute('href')
-        car_title = card.find_element(By.TAG_NAME, 'h3').text
+        link = card.find_element(By.TAG_NAME, 'a').get_attribute('href')
+        title = card.find_element(By.TAG_NAME, 'h3').text
 
-        print('Adding', car_title)
-        car_year = int(car_title.split(' ')[0])
-        car_price_text = card.find_element(By.CSS_SELECTOR, 'div.price').text
-        car_price_match = re.match(r'\$(\d+,\d+)', car_price_text)
-        if car_price_match is not None:
-            price = car_price_match.groups()[0].replace(',', '')
-            car_price = int(price)
+        print('Adding', title)
+        year = int(title.split(' ')[0])
+        price_text = card.find_element(By.CSS_SELECTOR, 'div.price').text
+        price_match = re.match(r'\$(\d+,\d+)', price_text)
+        if price_match is not None:
+            price = price_match.groups()[0].replace(',', '')
+            price = int(price)
         else:
-            car_price = None
+            price = None
 
         details_list = card.find_element(By.CLASS_NAME, 'key-details')
         details_items = details_list.find_elements(By.TAG_NAME, 'li')
-        car_details = {}
-        for item in details_items:
-            car_details[item.get_attribute('data-type')] = item.text
+        details = {}
+        details = {
+            item.get_attribute('data-type'): item.text
+            for item in details_items
+        }
 
         car = cls(
-            car_link,
-            car_title,
-            car_year,
-            car_details,
-            car_price,
-            car_price_text,
+            link,
+            title,
+            year,
+            details,
+            price,
+            price_text,
         )
 
         return car
@@ -67,56 +69,6 @@ def get_average(list):
 def main():
     options = Options()
     driver = webdriver.Firefox(options=options)
-
-    # setup config file. if it exists, load it
-    config = configparser.ConfigParser()
-    if os.path.isfile('carsales_calc.ini'):
-        config.read('carsales_calc.ini')
-        user_settings = config['user']
-        user_state = user_settings['State']
-        if 'Transmission' in user_settings:
-            user_transmission = user_settings['Transmission']
-        else:
-            transmission_switch = False
-        if 'Min price' in user_settings:
-            price_min, price_max = (
-                user_settings['Min price'],
-                user_settings['Max price'],
-            )
-        else:
-            price_switch = False
-        kms_min, kms_max = user_settings['Min kms'], user_settings['Max kms']
-    else:
-        config.add_section('user')
-        user_settings = config['user']
-        print('Enter your State')
-        user_state = input('> ')
-        user_settings['State'] = user_state
-        print('Enter your Transmission')
-        user_transmission = input('> ')
-        if user_transmission == '':
-            transmission_switch = False
-        else:
-            user_settings['Transmission'] = user_transmission
-        print('Enter your price range separated by commas')
-        user_price_range = input('> ')
-        if user_price_range == '':
-            price_switch = False
-        else:
-            price_min, price_max = user_price_range.replace(' ', '').split(',')
-            user_settings['Min price'] = price_min
-            user_settings['Max price'] = price_max
-        print('Enter your KM range separated by commas')
-        user_kms_range = input('> ')
-        kms_min, kms_max = user_kms_range.replace(' ', '').split(',')
-        user_settings['Min kms'] = kms_min
-        user_settings['Max kms'] = kms_max
-        print('Saving config file.')
-        with open('carsales_calc.ini', 'w') as configfile:
-            config.write(configfile)
-
-    print('Enter car make and model')
-    # car_choice = input('> ')
 
     user_make, user_model = ('Skoda', 'Superb')
 
