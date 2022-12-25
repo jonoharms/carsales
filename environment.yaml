@@ -3,6 +3,7 @@ name: carsales
 dependencies:
   - python=3.11
   - numpy
+  - attrs
   - xlsxwriter
   - pandas
   - plotly

@@ -4,6 +4,7 @@ from selenium.webdriver.firefox.options import Options
 
 # from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 import xlsxwriter
 import datetime
 import configparser
@@ -12,6 +13,50 @@ import numpy
 from collections import namedtuple
 import matplotlib.pyplot as plt
 import re
+from attrs import define
+from typing import Optional, Self
+
+
+@define
+class Car:
+    link: str
+    title: str
+    year: int
+    details: dict
+    price: Optional[int]
+    price_text: str
+
+    @classmethod
+    def from_card_webelement(cls, card: WebElement) -> Self:
+        car_link = card.find_element(By.TAG_NAME, 'a').get_attribute('href')
+        car_title = card.find_element(By.TAG_NAME, 'h3').text
+
+        print('Adding', car_title)
+        car_year = int(car_title.split(' ')[0])
+        car_price_text = card.find_element(By.CSS_SELECTOR, 'div.price').text
+        car_price_match = re.match(r'\$(\d+,\d+)', car_price_text)
+        if car_price_match is not None:
+            price = car_price_match.groups()[0].replace(',', '')
+            car_price = int(price)
+        else:
+            car_price = None
+
+        details_list = card.find_element(By.CLASS_NAME, 'key-details')
+        details_items = details_list.find_elements(By.TAG_NAME, 'li')
+        car_details = {}
+        for item in details_items:
+            car_details[item.get_attribute('data-type')] = item.text
+
+        car = cls(
+            car_link,
+            car_title,
+            car_year,
+            car_details,
+            car_price,
+            car_price_text,
+        )
+
+        return car
 
 
 def get_average(list):
@@ -105,36 +150,25 @@ def main():
         + user_make
         + '._.Model.'
         + user_model
-        + '.)_.Year.range(2019..).)'
+        + '.)_.Year.range(2007..).)'
     )
 
-    try:
-        num_search_results = int(
-            driver.find_elements(By.CSS_SELECTOR, 'div.results-title')[
-                0
-            ].text.split(' ')[0]
-        )
-    except:
-        num_search_results = 5
+    num_search_results = int(
+        driver.find_element(By.CLASS_NAME, 'title').text.split(' ')[0]
+    )
 
     if num_search_results > 24:
-        pagination_div = driver.find_elements(
-            By.CSS_SELECTOR, 'div.pagination'
-        )[0]
+        pagination_div = driver.find_element(By.CSS_SELECTOR, 'div.pagination')
         page_count = int(
-            pagination_div.find_elements(By.TAG_NAME, 'p')[0].text.split(' ')[
-                1
-            ]
+            pagination_div.find_element(By.TAG_NAME, 'p').text.split(' ')[1]
         )
-        next_page_link = pagination_div.find_elements(
+        next_page_link = pagination_div.find_element(
             By.PARTIAL_LINK_TEXT, 'Next'
-        )[0].get_attribute('href')
+        ).get_attribute('href')
     else:
         page_count = 1
     current_page = 1
     car_list = []
-    tuple_list = []
-    Car = namedtuple('Car', ['link', 'title', 'year', 'kms', 'price'])
 
     while current_page <= page_count:
         print('Loading page', str(current_page))
@@ -142,54 +176,22 @@ def main():
             By.CSS_SELECTOR, 'div.listing-item'
         )
         real_page_listings = []
-        for car in page_listings:
-            if not 'contentcards' in car.get_attribute(
+        for card in page_listings:
+            if not 'contentcards' in card.get_attribute(
                 'class'
-            ) and not 'gcad' in car.get_attribute('class'):
-                real_page_listings.append(car)
-        for car in real_page_listings:
-            car_link = car.find_element(By.TAG_NAME, 'a').get_attribute('href')
-            car_title = car.find_element(By.TAG_NAME, 'h3').text
+            ) and not 'gcad' in card.get_attribute('class'):
+                real_page_listings.append(card)
+        car_list = [
+            Car.from_card_webelement(card) for card in real_page_listings
+        ]
 
-            print('Adding', car_title)
-            car_year = int(car_title.split(' ')[0])
-            car_price_text = car.find_element(
-                By.CSS_SELECTOR, 'div.price'
-            ).text
-            car_price_match = re.match(r'\$(\d+,\d+)', car_price_text)
-            if car_price_match is not None:
-                price = car_price_match.groups()[0].replace(',', '')
-                car_price = int(price)
-            else:
-                car_price = None
-
-            details_list = car.find_element(By.CLASS_NAME, 'key-details')
-            details_items = details_list.find_elements(By.TAG_NAME, 'li')
-            details = {}
-            for item in details_items:
-                details[item.get_attribute('data-type')] = item.text
-
-            car_kms = int(
-                car.find_elements(By.CSS_SELECTOR, 'div.feature-text')[0]
-                .text.strip(' km')
-                .replace(',', '')
-            )
-            car_tuple = Car(car_link, car_title, car_year, car_kms, car_price)
-            tuple_list.append(car_tuple)
-            car_list.append(
-                {
-                    'year': car_year,
-                    'kms': car_kms,
-                    'price': car_price,
-                }
-            )
         if current_page < page_count:
-            pagination_div = driver.find_elements(
+            pagination_div = driver.find_element(
                 By.CSS_SELECTOR, 'div.pagination'
-            )[0]
-            next_page_link = pagination_div.find_elements(
+            )
+            next_page_link = pagination_div.find_element(
                 By.PARTIAL_LINK_TEXT, 'Next'
-            )[0].get_attribute('href')
+            ).get_attribute('href')
             driver.get(next_page_link)
         current_page += 1
 
