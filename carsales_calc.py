@@ -50,6 +50,8 @@ class Car:
 
         print('Adding', title)
         year = int(title.split(' ')[0])
+
+        #TODO: split into drive away and ex gov charges
         price_text = card.find_element(By.CSS_SELECTOR, 'div.price').text
         price_info = card.find_element(By.CLASS_NAME, 'price-info').text
         price_match = re.match(r'\$([\d,]+)', price_text)
