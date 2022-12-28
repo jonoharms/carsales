@@ -28,6 +28,8 @@ class Car:
     price: Optional[int]
     price_text: str
     price_info: str
+    price_info_price: Optional[int]
+    kms: int
     id: str
     category: str
     make: str
@@ -38,7 +40,8 @@ class Car:
     transmission: str
     engine: str
     build_date: Optional[str] = None
-    odometer: Optional[str] = None
+    odometer: Optional[int] = None
+    
 
     @classmethod
     def from_card_webelement(cls, card: WebElement) -> Self:
@@ -49,12 +52,19 @@ class Car:
         year = int(title.split(' ')[0])
         price_text = card.find_element(By.CSS_SELECTOR, 'div.price').text
         price_info = card.find_element(By.CLASS_NAME, 'price-info').text
-        price_match = re.match(r'\$(\d+,\d+)', price_text)
+        price_match = re.match(r'\$([\d,]+)', price_text)
         if price_match is not None:
             price = price_match.groups()[0].replace(',', '')
             price = int(price)
         else:
             price = None
+
+        price_info_match = re.match(r'\$([\d,]+)', price_info)
+        if price_info_match is not None:
+            price_info_price = price_info_match.groups()[0].replace(',', '')
+            price_info_price = int(price_info_price)
+        else:
+            price_info_price = price
 
         details_list = card.find_element(By.CLASS_NAME, 'key-details')
         details_items = details_list.find_elements(By.TAG_NAME, 'li')
@@ -69,12 +79,21 @@ class Car:
         details['model'] = card.get_attribute('data-webm-model')
         details['state'] = card.get_attribute('data-webm-state')
         
-        to_remove = [str(year), details['make'], details['model'], r'MY[\.\d]+', 'Auto']
+        if 'odometer' in details:
+            kms_match = re.match(r'([\d,]+).*km', details['odometer'])
+            kms = 0
+            if kms_match is not None:
+                kms = int(kms_match.groups()[0].replace(',', ''))
+        else:
+            kms = 0
+
+        
+        to_remove = [str(year), details['make'], details['model'], r'MY[\.\d]+', 'Auto', 'AWD', '4x4']
         badge = title
         for sub in to_remove:
             badge = re.sub(sub, '', badge)
 
-        details['badge'] = badge
+        details['badge'] = badge.strip()
         marketing_year = re.search(r'(MY[\.\d]+)', title)
         if marketing_year is not None:
             marketing_year = marketing_year.groups()[0]
@@ -89,6 +108,8 @@ class Car:
             price,
             price_text,
             price_info,
+            price_info_price,
+            kms,
             **details
         )
 
