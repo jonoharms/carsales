@@ -2,12 +2,13 @@ name: carsales
 
 dependencies:
   - python=3.11
-  - numpy
-  - attrs
-  - pandas
-  - plotly
-  - streamlit
-  - pip
-  - matplotlib
   - pip:
     - selenium
+    - streamlit
+    - numpy
+    - attrs
+    - pandas
+    - plotly
+    - pip
+    - matplotlib
+    - watchdog
