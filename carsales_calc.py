@@ -10,14 +10,19 @@ from attrs import define, asdict
 from selenium import webdriver
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options
+
+# from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+import undetected_chromedriver as uc
+
 import time
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+
 
 @define
 class Car:
@@ -25,10 +30,10 @@ class Car:
     title: str
     year: int
     marketing_year: str
-    price: Optional[int]
+    drive_away_price: Optional[int]
+    ex_gov_price: Optional[int]
     price_text: str
     price_info: str
-    price_info_price: Optional[int]
     kms: int
     id: str
     category: str
@@ -39,9 +44,9 @@ class Car:
     body_style: str
     transmission: str
     engine: str
+    seller_type: Optional[str]
     build_date: Optional[str] = None
     odometer: Optional[int] = None
-    
 
     @classmethod
     def from_card_webelement(cls, card: WebElement) -> Self:
@@ -51,7 +56,7 @@ class Car:
         print('Adding', title)
         year = int(title.split(' ')[0])
 
-        #TODO: split into drive away and ex gov charges
+        # TODO: split into drive away and ex gov charges
         price_text = card.find_element(By.CSS_SELECTOR, 'div.price').text
         price_info = card.find_element(By.CLASS_NAME, 'price-info').text
         price_match = re.match(r'\$([\d,]+)', price_text)
@@ -66,13 +71,29 @@ class Car:
             price_info_price = price_info_match.groups()[0].replace(',', '')
             price_info_price = int(price_info_price)
         else:
-            price_info_price = price
+            price_info_price = None
+
+        drive_away_price = (
+            price
+            if any('Drive Away' in text for text in [price_text, price_info])
+            else None
+        )
+
+        ex_gov_price = (
+            price
+            if all(
+                'Drive Away' not in text for text in [price_text, price_info]
+            )
+            else price_info_price
+        )
 
         details_list = card.find_element(By.CLASS_NAME, 'key-details')
         details_items = details_list.find_elements(By.TAG_NAME, 'li')
         details = {}
         details = {
-            item.get_attribute('data-type').lower().replace(' ', '_'): item.text
+            item.get_attribute('data-type')
+            .lower()
+            .replace(' ', '_'): item.text
             for item in details_items
         }
         details['id'] = card.get_attribute('id')
@@ -80,7 +101,15 @@ class Car:
         details['make'] = card.get_attribute('data-webm-make')
         details['model'] = card.get_attribute('data-webm-model')
         details['state'] = card.get_attribute('data-webm-state')
-        
+
+        class_ = card.get_attribute('class').strip()
+        if 'cs-select' in class_:
+            seller_type_elem = card.find_element(By.CLASS_NAME, 'ad-type')
+        else:
+            seller_type_elem = card.find_element(By.CLASS_NAME, 'seller-type')
+
+        seller_type = re.sub(r'[\d\.]+', '', seller_type_elem.text).strip()
+
         if 'odometer' in details:
             kms_match = re.match(r'([\d,]+).*km', details['odometer'])
             kms = 0
@@ -89,8 +118,13 @@ class Car:
         else:
             kms = 0
 
-        
-        to_remove = [str(year), details['make'], details['model'], r'MY[\.\d]+', 'Auto', 'AWD', '4x4']
+        to_remove = [
+            str(year),
+            details['make'],
+            details['model'],
+            r'MY[\.\d]+',
+            'Auto',
+        ]
         badge = title
         for sub in to_remove:
             badge = re.sub(sub, '', badge)
@@ -107,12 +141,13 @@ class Car:
             title,
             year,
             marketing_year,
-            price,
+            drive_away_price,
+            ex_gov_price,
             price_text,
             price_info,
-            price_info_price,
             kms,
-            **details
+            seller_type=seller_type,
+            **details,
         )
 
         return car
@@ -126,12 +161,13 @@ def get_average(list):
     return numpy.average(price_list)
 
 
-def do_search(min_year: Optional[int], make: str, model: str):
+def do_search(
+    min_year: Optional[int], max_year: Optional[int], make: str, model: str
+) -> list[Car]:
 
     options = Options()
     # options.headless = True
-    driver = webdriver.Firefox(options=options)
-    
+    driver = driver = uc.Chrome(options=options)
 
     print('Searching Carsales')
     driver.get(
@@ -141,15 +177,25 @@ def do_search(min_year: Optional[int], make: str, model: str):
         + model
         + '.)_.Year.range('
         + str(min_year)
-        + '..).)&sort=~Price'
+        + '..'
+        + str(max_year)
+        + ')._.Condition.Used.)&sort=~Price'
     )
 
     title = WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.CLASS_NAME, 'title'))
     )
 
-    num_search_results = int(title.text.split(' ')[0])
-    st.info(f'Found {num_search_results} results, scraping details...' )
+    num_search_results = title.text.split(' ')[0]
+    num_search_results = num_search_results.replace(',', '').strip()
+    num_search_results = int(num_search_results)
+    if num_search_results > 1000:
+        st.error(
+            f"Found {num_search_results} results, carsales doesn't like over 1000, try splitting the search."
+        )
+        return []
+
+    st.info(f'Found {num_search_results} results, scraping details...')
 
     current_page = 0
     car_list = []
@@ -163,8 +209,8 @@ def do_search(min_year: Optional[int], make: str, model: str):
         car_list.extend(
             [Car.from_card_webelement(card) for card in page_listings]
         )
-        progress_bar.progress(len(car_list)/num_search_results)
-        time.sleep(2) # to avoid being blocked as a bot
+        progress_bar.progress(len(car_list) / num_search_results)
+        time.sleep(3.0)   # to avoid being blocked as a bot
         if len(car_list) < num_search_results:
             pagination_div = driver.find_element(
                 By.CSS_SELECTOR, 'ul.pagination'
@@ -177,7 +223,6 @@ def do_search(min_year: Optional[int], make: str, model: str):
             break
 
         current_page += 1
-        
 
     driver.close()
     dict_list = [asdict(car) for car in car_list]
@@ -190,23 +235,28 @@ def main():
 
     make = st.sidebar.text_input('Make')
     model = st.sidebar.text_input('Model')
-    min_year = st.sidebar.selectbox('Min Year', range(2023, 1990, -1), index=4)
 
-    st.sidebar.button('Do Search', on_click=do_search, args=(min_year, make, model))
+    next_year = datetime.date.today().year + 1
+    year_range = range(next_year, 1990, -1)
+    min_year = st.sidebar.selectbox('Min Year', year_range, index=4)
+    max_year = st.sidebar.selectbox('Max Year', year_range, index=0)
+
+    st.sidebar.button(
+        'Do Search', on_click=do_search, args=(min_year, max_year, make, model)
+    )
 
     if 'cars_df' in st.session_state:
         df = st.session_state['cars_df']
         st.dataframe(df)
-        filename = f'{make.lower()}_{model.lower()}.csv'
+        filename = f'{make.lower()}_{model.lower()}_{min_year}_{max_year}.csv'
         path = Path.cwd().joinpath('data', filename)
         st.markdown('## Save File')
         if path.exists():
             st.markdown(f'{filename} already exists. This will overwrite.')
-        if st.button("Save to CSV"):
+        if st.button('Save to CSV'):
             if not path.parent.exists():
                 path.parent.mkdir()
             df.to_csv(path)
-        
 
     # x = [x.year for x in car_list]
     # y = [x.price for x in car_list]

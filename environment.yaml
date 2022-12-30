@@ -3,7 +3,7 @@ name: carsales
 dependencies:
   - python=3.11
   - pip:
-    - selenium
+    - seleniumbase
     - streamlit
     - numpy
     - attrs
@@ -12,3 +12,6 @@ dependencies:
     - pip
     - matplotlib
     - watchdog
+    - undetected-chromedriver
+
+webdriver-manager
