@@ -1,0 +1,11 @@
+seleniumbase
+streamlit
+numpy
+attrs
+pandas
+plotly
+pip
+matplotlib
+watchdog
+undetected-chromedriver
+webdriver-manager
