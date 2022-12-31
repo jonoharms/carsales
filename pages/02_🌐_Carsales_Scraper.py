@@ -1,6 +1,6 @@
 import datetime
 import re
-from typing import Optional
+from typing import Optional, Self
 
 import matplotlib.pyplot as plt
 import numpy
@@ -10,18 +10,11 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 
 # from selenium.webdriver.firefox.options import Options
-# from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-
 from selenium.webdriver.support.wait import WebDriverWait
-
-# import undetected_chromedriver as uc
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc
 
 import time
 import streamlit as st
@@ -54,7 +47,7 @@ class Car:
     odometer: Optional[int] = None
 
     @classmethod
-    def from_card_webelement(cls, card: WebElement):
+    def from_card_webelement(cls, card: WebElement) -> Self:
         link = card.find_element(By.TAG_NAME, 'a').get_attribute('href')
         title = card.find_element(By.TAG_NAME, 'h3').text
 
@@ -166,23 +159,14 @@ def get_average(list):
     return numpy.average(price_list)
 
 
-options = Options()
-options.add_argument('--disable-gpu')
-options.add_argument('--headless')
-
-
-@st.experimental_singleton
-def get_driver():
-    return webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()), options=options
-    )
-
-
 def do_search(
     min_year: Optional[int], max_year: Optional[int], make: str, model: str
 ) -> list[Car]:
 
-    driver = get_driver()
+    options = Options()
+    # options.headless = True
+    driver = driver = uc.Chrome(options=options)
+
     print('Searching Carsales')
     driver.get(
         'https://www.carsales.com.au/cars/?q=(And.(C.Make.'
@@ -196,7 +180,7 @@ def do_search(
         + ')._.Condition.Used.)&sort=~Price'
     )
 
-    title = WebDriverWait(driver, 90).until(
+    title = WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.CLASS_NAME, 'title'))
     )
 
