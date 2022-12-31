@@ -1,8 +1,6 @@
-import configparser
 import datetime
-import os.path
 import re
-from typing import Optional, Self
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy
