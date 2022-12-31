@@ -9,12 +9,12 @@ from selenium import webdriver
 
 from selenium.webdriver.common.by import By
 
-# from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options
+
+# from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-import undetected_chromedriver as uc
 
 import time
 import streamlit as st
@@ -164,8 +164,8 @@ def do_search(
 ) -> list[Car]:
 
     options = Options()
-    # options.headless = True
-    driver = driver = uc.Chrome(options=options)
+    options.headless = True
+    driver = webdriver.Firefox(options=options)
 
     print('Searching Carsales')
     driver.get(
