@@ -36,4 +36,4 @@ RUN git clone https://github.com/jonoharms/carsales.git
 
 RUN pip3 install -r carsales/requirements.txt
 
-ENTRYPOINT ["streamlit", "run", "carsales/01_🏠_Home.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "carsales/01_🏠_Home.py", "--server.port=$PORT", "--server.address=0.0.0.0"]
