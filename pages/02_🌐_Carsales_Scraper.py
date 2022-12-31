@@ -54,7 +54,7 @@ class Car:
     odometer: Optional[int] = None
 
     @classmethod
-    def from_card_webelement(cls, card: WebElement) -> Self:
+    def from_card_webelement(cls, card: WebElement):
         link = card.find_element(By.TAG_NAME, 'a').get_attribute('href')
         title = card.find_element(By.TAG_NAME, 'h3').text
 
