@@ -10,3 +10,4 @@ matplotlib
 watchdog
 scikit-learn
 statsmodels
+pillow

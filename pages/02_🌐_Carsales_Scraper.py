@@ -36,9 +36,23 @@ def do_search(
         + ')._.Condition.Used.)&sort=~Price'
     )
 
-    title = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.CLASS_NAME, 'title'))
-    )
+    title = driver.find_elements(By.CLASS_NAME, 'title')
+
+    if not title:
+
+        if 'captcha' in driver.page_source:
+            st.error('carsales thinks you are a robot, try a new ip address.')
+        else:
+            st.error('did not load, try again.')
+
+        driver.save_screenshot('error.png')
+        st.image('error.png')
+        return []
+
+    title = title[0]
+
+    driver.save_screenshot('success.png')
+    st.image('success.png')
 
     num_search_results = title.text.split(' ')[0]
     num_search_results = num_search_results.replace(',', '').strip()
@@ -47,6 +61,10 @@ def do_search(
         st.error(
             f"Found {num_search_results} results, carsales doesn't like over 1000, try splitting the search."
         )
+        return []
+
+    if num_search_results == 0:
+        st.error(f'found no results, try again.')
         return []
 
     st.info(f'Found {num_search_results} results, scraping details...')
@@ -60,19 +78,28 @@ def do_search(
         page_listings = driver.find_elements(
             By.CSS_SELECTOR, 'div.listing-item'
         )
-        car_list.extend(
-            [Car.from_card_webelement(card) for card in page_listings]
-        )
+        new_list = [Car.from_card_webelement(card) for card in page_listings]
+        car_list.extend(new_list)
+        titles = [car.title for car in new_list]
+        titles.reverse()
+        st.markdown(f'##### {current_page+1}')
+        st.text('\n'.join(titles))
+
         progress_bar.progress(len(car_list) / num_search_results)
         time.sleep(3.0)   # to avoid being blocked as a bot
         if len(car_list) < num_search_results:
             pagination_div = driver.find_element(
                 By.CSS_SELECTOR, 'ul.pagination'
             )
-            next_page_link = pagination_div.find_element(
+            next_page_elem = pagination_div.find_elements(
                 By.PARTIAL_LINK_TEXT, 'Next'
-            ).get_attribute('href')
-            driver.get(next_page_link)
+            )
+            if next_page_elem:
+                next_page_link = next_page_elem[0].get_attribute('href')
+                driver.get(next_page_link)
+            else:
+                st.warning('could not find next page, stopping.')
+                break
         else:
             break
 
@@ -96,21 +123,21 @@ def main():
     min_year = st.sidebar.selectbox('Min Year', year_range, index=4)
     max_year = st.sidebar.selectbox('Max Year', year_range, index=0)
 
-    st.sidebar.button(
-        'Do Search',
-        on_click=do_search,  # type: ignore
-        args=(min_year, max_year, make, model),
-    )
+    if st.sidebar.button('Do Search'):
+        do_search(min_year, max_year, make, model)
 
     if 'cars_df' in st.session_state:
         df = st.session_state['cars_df']
         st.dataframe(df)
         filename = f'{make.lower()}_{model.lower()}_{min_year}_{max_year}.csv'
         path = Path.cwd().joinpath('data', filename)
-        st.markdown('## Save File')
+        st.sidebar.markdown("""---""")
+        st.sidebar.markdown('## Save File')
         if path.exists():
-            st.markdown(f'{filename} already exists. This will overwrite.')
-        if st.button('Save to CSV'):
+            st.sidebar.markdown(
+                f'{filename} already exists. This will overwrite.'
+            )
+        if st.sidebar.button('Save to CSV'):
             if not path.parent.exists():
                 path.parent.mkdir()
             df.to_csv(path)
