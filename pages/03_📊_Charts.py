@@ -8,6 +8,7 @@ import streamlit as st
 from streamlit_extras.dataframe_explorer import dataframe_explorer
 from sklearn.linear_model import LinearRegression
 import datetime
+import altair as alt
 
 
 def main():
@@ -21,6 +22,7 @@ def main():
         .drop_duplicates(subset=['id'])
         .reset_index(drop=True)
     )
+    df['model'] = df['model'].astype(str)
     df['age'] = datetime.date.today().year - df['year']
     df = dataframe_explorer(df)
     color_by = st.sidebar.selectbox('Color By', df.columns, index=12)
@@ -35,46 +37,63 @@ def main():
         'Trendline Scope', ['overall', 'trace']
     )
     only_trends = st.sidebar.checkbox('Only Show Trendlines', value=False)
+    tooltip = [
+        'make',
+        'model',
+        'badge',
+        'ex_gov_price',
+        'drive_away_price',
+        'kms',
+        'year',
+        'state',
+        'id',
+    ]
 
-    fig = px.scatter(
-        df,
-        x=x_col,
-        y=y_col,
-        color=color_by,
-        hover_name='title',
-        hover_data=[
-            'make',
-            'model',
-            'badge',
-            'ex_gov_price',
-            'drive_away_price',
-            'kms',
-            'year',
-            'state',
-            'id',
-        ],
-        trendline=trendline,
-        trendline_scope=trendline_scope,
-        size=size,
-    )
+    if st.sidebar.checkbox('plotly', value=False):
+        fig = px.scatter(
+            df,
+            x=x_col,
+            y=y_col,
+            color=color_by,
+            hover_name='title',
+            hover_data=tooltip,
+            trendline=trendline,
+            trendline_scope=trendline_scope,
+            size=size,
+        )
 
-    if x_col == 'year':
-        fig.update_xaxes(autorange='reversed')
+        if x_col == 'year':
+            fig.update_xaxes(autorange='reversed')
 
-    if only_trends:
-        fig.data = [t for t in fig.data if t.mode == 'lines']
-        fig.update_traces(
-            showlegend=True
-        )   # trendlines have showlegend=False by default
+        if only_trends:
+            fig.data = [t for t in fig.data if t.mode == 'lines']
+            fig.update_traces(
+                showlegend=True
+            )   # trendlines have showlegend=False by default
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-    if trendline == 'ols':
-        with st.expander('Show Trendline Results'):
-            results = px.get_trendline_results(fig)
+        if trendline == 'ols':
+            with st.expander('Show Trendline Results'):
+                results = px.get_trendline_results(fig)
 
-            for res in results.px_fit_results:
-                st.write(res.summary())
+                for res in results.px_fit_results:
+                    st.write(res.summary())
+    else:
+        single = alt.selection_single()
+        achart = (
+            alt.Chart(df)
+            .mark_point()
+            .encode(
+                x=x_col,
+                y=y_col,
+                color=alt.condition(single, color_by, alt.value('lightgray')),
+                tooltip=tooltip,
+            )
+            .add_selection(single)
+        )
+
+        st.altair_chart(achart, use_container_width=True)
 
     with st.expander('Show Dataframe'):
         st.write(df)

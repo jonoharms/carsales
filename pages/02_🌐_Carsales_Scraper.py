@@ -18,10 +18,10 @@ import random
 
 def do_search(
     min_year: Optional[int], max_year: Optional[int], make: str, model: str
-) -> list[Car]:
+) -> Optional[pd.DataFrame]:
 
     options = Options()
-    options.headless = True
+    # options.headless = True
     driver = webdriver.Firefox(options=options)
 
     print('Searching Carsales')
@@ -62,11 +62,11 @@ def do_search(
         st.error(
             f"Found {num_search_results} results, carsales doesn't like over 1000, try splitting the search."
         )
-        return []
+        return None
 
     if num_search_results == 0:
         st.error(f'found no results, try again.')
-        return []
+        return None
 
     st.info(f'Found {num_search_results} results, scraping details...')
 
@@ -87,8 +87,11 @@ def do_search(
             st.text('\n'.join(titles))
 
         progress_bar.progress(len(car_list) / num_search_results)
-        sleep_time = random.randrange(3, 10)
+        sleep_time = random.randrange(0, 2)
         time.sleep(sleep_time)   # to avoid being blocked as a bot
+        driver.execute_script(
+            'window.scrollTo(0, document.body.scrollHeight);'
+        )
         if len(car_list) < num_search_results:
             pagination_div = driver.find_elements(
                 By.CSS_SELECTOR, 'ul.pagination'
@@ -116,8 +119,8 @@ def do_search(
     driver.close()
     dict_list = [asdict(car) for car in car_list]
     df = pd.DataFrame.from_records(dict_list)
-    st.session_state['cars_df'] = df
-    return car_list
+
+    return df
 
 
 def main():
@@ -131,28 +134,24 @@ def main():
     min_year = st.sidebar.selectbox('Min Year', year_range, index=4)
     max_year = st.sidebar.selectbox('Max Year', year_range, index=0)
 
-    if st.sidebar.button('Do Search'):
-        do_search(min_year, max_year, make, model)
+    filename = '_'.join(
+        [
+            make.lower(),
+            model.lower(),
+            str(min_year),
+            str(max_year),
+        ]
+    ).replace(' ', '_')
+    path = Path.cwd().joinpath('data', filename).with_suffix('.csv')
 
-    if 'cars_df' in st.session_state:
-        df = st.session_state['cars_df']
-        st.dataframe(df)
-        filename = '_'.join(
-            [
-                make.lower(),
-                model.lower(),
-                str(min_year),
-                str(max_year),
-            ]
-        ).replace(' ', '_')
-        path = Path.cwd().joinpath('data', filename).with_suffix('.csv')
-        st.sidebar.markdown("""---""")
-        st.sidebar.markdown('## Save File')
-        if path.exists():
-            st.sidebar.markdown(
-                f'{filename} already exists. This will overwrite.'
-            )
-        if st.sidebar.button('Save to CSV'):
+    if path.exists():
+        st.sidebar.markdown(f'{filename} already exists. This will overwrite.')
+
+    if st.sidebar.button('Do Search'):
+        df = do_search(min_year, max_year, make, model)
+        if df is not None:
+            st.success('Search Complete')
+            st.dataframe(df)
             if not path.parent.exists():
                 path.parent.mkdir()
             df.to_csv(path)
