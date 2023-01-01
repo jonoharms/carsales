@@ -1,5 +1,6 @@
 seleniumbase
 streamlit
+streamlit-extras
 numpy
 attrs
 pandas
@@ -7,3 +8,6 @@ plotly
 pip
 matplotlib
 watchdog
+scikit-learn
+statsmodels
+pillow
