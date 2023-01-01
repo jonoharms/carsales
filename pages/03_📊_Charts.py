@@ -51,6 +51,7 @@ def main():
             'kms',
             'year',
             'state',
+            'id',
         ],
         trendline=trendline,
         trendline_scope=trendline_scope,

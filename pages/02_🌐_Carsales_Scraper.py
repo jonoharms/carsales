@@ -13,6 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from car import Car
+import random
 
 
 def do_search(
@@ -82,18 +83,25 @@ def do_search(
         car_list.extend(new_list)
         titles = [car.title for car in new_list]
         titles.reverse()
-        st.markdown(f'##### {current_page+1}')
-        st.text('\n'.join(titles))
+        with st.expander(f'Page {current_page+1}'):
+            st.text('\n'.join(titles))
 
         progress_bar.progress(len(car_list) / num_search_results)
-        time.sleep(3.0)   # to avoid being blocked as a bot
+        sleep_time = random.randrange(3, 10)
+        time.sleep(sleep_time)   # to avoid being blocked as a bot
         if len(car_list) < num_search_results:
-            pagination_div = driver.find_element(
+            pagination_div = driver.find_elements(
                 By.CSS_SELECTOR, 'ul.pagination'
             )
-            next_page_elem = pagination_div.find_elements(
-                By.PARTIAL_LINK_TEXT, 'Next'
-            )
+            if pagination_div:
+                next_page_elem = pagination_div[0].find_elements(
+                    By.PARTIAL_LINK_TEXT, 'Next'
+                )
+            else:
+                st.warning('could not find next page, stopping.')
+                driver.save_screenshot('error2.png')
+                st.image('error2.png')
+                break
             if next_page_elem:
                 next_page_link = next_page_elem[0].get_attribute('href')
                 driver.get(next_page_link)
@@ -129,8 +137,15 @@ def main():
     if 'cars_df' in st.session_state:
         df = st.session_state['cars_df']
         st.dataframe(df)
-        filename = f'{make.lower()}_{model.lower()}_{min_year}_{max_year}.csv'
-        path = Path.cwd().joinpath('data', filename)
+        filename = '_'.join(
+            [
+                make.lower(),
+                model.lower(),
+                str(min_year),
+                str(max_year),
+            ]
+        ).replace(' ', '_')
+        path = Path.cwd().joinpath('data', filename).with_suffix('.csv')
         st.sidebar.markdown("""---""")
         st.sidebar.markdown('## Save File')
         if path.exists():
