@@ -67,16 +67,15 @@ def main():
         .encode(
             # x=x_col + ':Q',
             y=y_col + ':Q',
-            # color=alt.condition(brush, color_by, alt.value('lightgray')),
+            color=color_by,
             tooltip=tooltip,
             href='link:N',
             # size=size_by,
         )
-        # .add_selection(brush)
+        .properties(width=400, height=400)
     )
-    x_cols = ['kms:Q', 'age:Q']
-    points_charts = list(base_chart.encode(x=col) for col in x_cols)
-
+    x_cols = ['kms', 'age']
+    points_charts = list(base_chart.encode(x=col + ':Q') for col in x_cols)
     trend_charts = None
     if trendline_type:
         groupby = [color_by] if trendline_scope == 'trace' else []
@@ -102,27 +101,26 @@ def main():
                 for col, chart in zip(x_cols, points_charts)
             )
 
-    # if trend_charts and only_trends:
-    #     chart = alt.hconcat(*trend_charts)
-    # elif trend_charts:
-
-    # else:
-
-    charts = [
+    points_charts = [
         chart.encode(
             color=alt.condition(brush, color_by, alt.value('lightgray'))
         ).add_selection(brush)
         for chart in points_charts
     ]
-    # charts = [
-    #     alt.layer(point, trend) for point, trend in zip(charts, trend_charts)
-    # ]
 
-    chart = alt.hconcat(*charts)
-    trend_chart = alt.hconcat(*trend_charts)
+    if trend_charts and only_trends:
+        chart = alt.hconcat(*trend_charts)
+    elif trend_charts:
+        charts = [
+            alt.layer(point, trend)
+            for point, trend in zip(points_charts, trend_charts)
+        ]
+        chart = alt.hconcat(*charts)
+    else:
+        chart = alt.hconcat(*points_charts)
 
     st.altair_chart(chart, use_container_width=True)
-    st.altair_chart(trend_chart, use_container_width=True)
+    # st.altair_chart(trend_chart, use_container_width=True)
 
     with st.expander('Show Dataframe'):
         st.write(df)
