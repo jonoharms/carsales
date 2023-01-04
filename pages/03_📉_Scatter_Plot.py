@@ -26,18 +26,24 @@ def main():
     df['model'] = df['model'].astype(str)
     df['age'] = datetime.date.today().year - df['year']
     df = dataframe_explorer(df)
-    color_by = st.sidebar.selectbox('Color By', df.columns, index=12)
-    x_col = st.sidebar.selectbox('X Value', ['kms', 'age', 'year'], index=0)
-    x_col = x_col if x_col is not None else 'kms'
-
     y_col = st.sidebar.selectbox(
         'Y Value', ['ex_gov_price', 'drive_away_price'], index=0
     )
     y_col = y_col if y_col is not None else 'ex_gov_price'
+    color_by = st.sidebar.selectbox('Color By', df.columns, index=12)
+    # x_col = st.sidebar.selectbox('X Value', ['kms', 'age', 'year'], index=0)
+    # x_col = x_col if x_col is not None else 'kms'
 
-    size = st.sidebar.selectbox('Size', [None, 'kms', 'age'], index=0)
+    # size_by = st.sidebar.selectbox('Size By', ['kms', 'age'], index=0)
     st.sidebar.markdown("""---""")
-    trendline = st.sidebar.selectbox('Trendline Type', ['ols', 'lowess', None])
+    trendline_type = st.sidebar.selectbox(
+        'Trendline Type',
+        ['linear', 'quad', 'poly', 'log', 'exp', 'pow', 'loess', None],
+    )
+    trendline_order = 3
+    if trendline_type == 'poly':
+        trendline_order = st.sidebar.select_slider('Order', range(3, 10))
+
     trendline_scope = st.sidebar.selectbox(
         'Trendline Scope', ['overall', 'trace']
     )
@@ -53,52 +59,70 @@ def main():
         'state',
         'id',
     ]
+    brush = alt.selection_interval()  # selection of type "interval"
 
-    if st.sidebar.checkbox('plotly', value=False):
-        fig = px.scatter(
-            df,
-            x=x_col,
-            y=y_col,
-            color=color_by,
-            hover_name='title',
-            hover_data=tooltip,
-            trendline=trendline,
-            trendline_scope=trendline_scope,
-            size=size,
+    base_chart = (
+        alt.Chart(df)
+        .mark_point()
+        .encode(
+            # x=x_col + ':Q',
+            y=y_col + ':Q',
+            # color=alt.condition(brush, color_by, alt.value('lightgray')),
+            tooltip=tooltip,
+            href='link:N',
+            # size=size_by,
         )
+        # .add_selection(brush)
+    )
+    x_cols = ['kms:Q', 'age:Q']
+    points_charts = list(base_chart.encode(x=col) for col in x_cols)
 
-        if x_col == 'year':
-            fig.update_xaxes(autorange='reversed')
+    trend_charts = None
+    if trendline_type:
+        groupby = [color_by] if trendline_scope == 'trace' else []
 
-        if only_trends:
-            fig.data = [t for t in fig.data if t.mode == 'lines']
-            fig.update_traces(
-                showlegend=True
-            )   # trendlines have showlegend=False by default
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        if trendline == 'ols':
-            with st.expander('Show Trendline Results'):
-                results = px.get_trendline_results(fig)
-
-                for res in results.px_fit_results:
-                    st.write(res.summary())
-    else:
-        achart = (
-            alt.Chart(df)
-            .mark_point()
-            .encode(
-                x=x_col + ':Q',
-                y=y_col + ':Q',
-                color=color_by,
-                tooltip=tooltip,
-                href='link:N',
-                size=size,
+        if trendline_type == 'loess':
+            trend_charts = list(
+                chart.transform_loess(
+                    col,
+                    y_col,
+                    groupby=groupby,
+                ).mark_line()
+                for col, chart in zip(x_cols, points_charts)
             )
-        )
+        else:
+            trend_charts = list(
+                chart.transform_regression(
+                    col,
+                    y_col,
+                    method=trendline_type,
+                    groupby=groupby,
+                    order=trendline_order,
+                ).mark_line()
+                for col, chart in zip(x_cols, points_charts)
+            )
 
-        st.altair_chart(achart, use_container_width=True)
+    # if trend_charts and only_trends:
+    #     chart = alt.hconcat(*trend_charts)
+    # elif trend_charts:
+
+    # else:
+
+    charts = [
+        chart.encode(
+            color=alt.condition(brush, color_by, alt.value('lightgray'))
+        ).add_selection(brush)
+        for chart in points_charts
+    ]
+    # charts = [
+    #     alt.layer(point, trend) for point, trend in zip(charts, trend_charts)
+    # ]
+
+    chart = alt.hconcat(*charts)
+    trend_chart = alt.hconcat(*trend_charts)
+
+    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(trend_chart, use_container_width=True)
 
     with st.expander('Show Dataframe'):
         st.write(df)
