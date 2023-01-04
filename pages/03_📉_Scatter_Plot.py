@@ -12,8 +12,9 @@ import altair as alt
 
 
 def main():
+    st.set_page_config(page_title='Scatter Plot', layout='wide')
     st.write('# Carsales Analyser')
-
+    st.write('⌘/^ click to open carsales page in new tab')
     data = Path.cwd().joinpath('data').resolve()
     files = glob.glob(str(data) + '/*.csv')
     dataframes = [pd.read_csv(file, index_col=0) for file in files]
@@ -27,9 +28,13 @@ def main():
     df = dataframe_explorer(df)
     color_by = st.sidebar.selectbox('Color By', df.columns, index=12)
     x_col = st.sidebar.selectbox('X Value', ['kms', 'age', 'year'], index=0)
+    x_col = x_col if x_col is not None else 'kms'
+
     y_col = st.sidebar.selectbox(
         'Y Value', ['ex_gov_price', 'drive_away_price'], index=0
     )
+    y_col = y_col if y_col is not None else 'ex_gov_price'
+
     size = st.sidebar.selectbox('Size', [None, 'kms', 'age'], index=0)
     st.sidebar.markdown("""---""")
     trendline = st.sidebar.selectbox('Trendline Type', ['ols', 'lowess', None])
@@ -80,17 +85,16 @@ def main():
                 for res in results.px_fit_results:
                     st.write(res.summary())
     else:
-        single = alt.selection_single()
         achart = (
             alt.Chart(df)
             .mark_point()
             .encode(
-                x=x_col,
-                y=y_col,
-                color=alt.condition(single, color_by, alt.value('lightgray')),
+                x=x_col + ':Q',
+                y=y_col + ':Q',
+                color=color_by,
                 tooltip=tooltip,
+                href='link:N',
             )
-            .add_selection(single)
         )
 
         st.altair_chart(achart, use_container_width=True)

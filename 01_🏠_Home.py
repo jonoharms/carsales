@@ -1,9 +1,10 @@
 import streamlit as st
 
-st.set_page_config(layout='wide')
+
 
 
 def main():
+    st.set_page_config(page_title='Carsales Scraper and Analyser', layout='wide')
     st.write('# Carsales Scraper and Analyser')
 
 

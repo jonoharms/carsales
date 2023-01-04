@@ -48,7 +48,7 @@ def do_search(
 
         driver.save_screenshot('error.png')
         st.image('error.png')
-        return []
+        return None
 
     title = title[0]
 
@@ -124,8 +124,9 @@ def do_search(
 
 
 def main():
+    st.set_page_config(page_title='Carsales Scraper', layout='wide')
     st.write('# Carsales Scraper')
-
+    
     make = st.sidebar.text_input('Make')
     model = st.sidebar.text_input('Model')
 
