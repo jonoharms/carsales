@@ -94,6 +94,7 @@ def main():
                 color=color_by,
                 tooltip=tooltip,
                 href='link:N',
+                size=size,
             )
         )
 
