@@ -126,31 +126,32 @@ def do_search(
 def main():
     st.set_page_config(page_title='Carsales Scraper', layout='wide')
     st.write('# Carsales Scraper')
-    
-    make = st.sidebar.text_input('Make')
-    model = st.sidebar.text_input('Model')
 
-    next_year = datetime.date.today().year + 1
-    year_range = range(next_year, 1990, -1)
-    min_year = st.sidebar.selectbox('Min Year', year_range, index=4)
-    max_year = st.sidebar.selectbox('Max Year', year_range, index=0)
+    with st.sidebar.form(key='search'):
+        make = st.text_input('Make')
+        model = st.text_input('Model')
 
-    filename = '_'.join(
-        [
-            make.lower(),
-            model.lower(),
-            str(min_year),
-            str(max_year),
-        ]
-    ).replace(' ', '_')
-    path = Path.cwd().joinpath('data', filename).with_suffix('.csv')
+        next_year = datetime.date.today().year + 1
+        year_range = range(next_year, 1990, -1)
+        min_year = st.selectbox('Min Year', year_range, index=4)
+        max_year = st.selectbox('Max Year', year_range, index=0)
 
-    if path.exists():
-        st.sidebar.markdown(f'{filename} already exists. This will overwrite.')
+        submit_button = st.form_submit_button('Do Search')
 
-    if st.sidebar.button('Do Search'):
+    if submit_button:
         df = do_search(min_year, max_year, make, model)
         if df is not None:
+
+            filename = '_'.join(
+                [
+                    make.lower(),
+                    model.lower(),
+                    str(min_year),
+                    str(max_year),
+                ]
+            ).replace(' ', '_')
+
+            path = Path.cwd().joinpath('data', filename).with_suffix('.csv')
             st.success('Search Complete')
             st.dataframe(df)
             if not path.parent.exists():
