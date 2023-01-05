@@ -26,15 +26,29 @@ def main():
     df['model'] = df['model'].astype(str)
     df['age'] = datetime.date.today().year - df['year']
     df = dataframe_explorer(df)
+
     y_col = st.sidebar.selectbox(
-        'Y Value', ['ex_gov_price', 'drive_away_price'], index=0
+        'Y Value', ['ex_gov_price', 'drive_away_price', 'age', 'kms'], index=0
     )
     y_col = y_col if y_col is not None else 'ex_gov_price'
     color_by = st.sidebar.selectbox('Color By', df.columns, index=12)
-    # x_col = st.sidebar.selectbox('X Value', ['kms', 'age', 'year'], index=0)
-    # x_col = x_col if x_col is not None else 'kms'
+    x_cols = st.sidebar.selectbox(
+        'X Value', [['kms', 'age'], ['kms'], ['age']], index=0
+    )
+    x_cols = x_cols if x_cols is not None else ['kms']
 
-    # size_by = st.sidebar.selectbox('Size By', ['kms', 'age'], index=0)
+    use_size = st.sidebar.checkbox('Show kms/age/price as size', True)
+
+    if 'price' in y_col:
+        if len(x_cols) > 1:
+            size_by = ['age', 'kms']
+        elif 'kms' in x_cols:
+            size_by = ['age']
+        else:
+            size_by = ['kms']
+    else:
+        size_by = ['ex_gov_price' for _ in x_cols]
+
     st.sidebar.markdown("""---""")
     trendline_type = st.sidebar.selectbox(
         'Trendline Type',
@@ -60,7 +74,7 @@ def main():
         'id',
     ]
     brush = alt.selection_interval()  # selection of type "interval"
-
+    width = 800 / len(x_cols)
     base_chart = (
         alt.Chart(df)
         .mark_point()
@@ -72,9 +86,9 @@ def main():
             href='link:N',
             # size=size_by,
         )
-        .properties(width=400, height=400)
+        .properties(width=width, height=400)
     )
-    x_cols = ['kms', 'age']
+
     points_charts = list(base_chart.encode(x=col + ':Q') for col in x_cols)
     trend_charts = None
     if trendline_type:
@@ -103,10 +117,17 @@ def main():
 
     points_charts = [
         chart.encode(
-            color=alt.condition(brush, color_by, alt.value('lightgray'))
+            color=alt.condition(brush, color_by, alt.value('lightgray')),
         ).add_selection(brush)
         for chart in points_charts
     ]
+    if use_size:
+        points_charts = [
+            chart.encode(
+                size=size,
+            )
+            for chart, size in zip(points_charts, size_by)
+        ]
 
     if trend_charts and only_trends:
         chart = alt.hconcat(*trend_charts)
@@ -119,7 +140,9 @@ def main():
     else:
         chart = alt.hconcat(*points_charts)
 
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(
+        chart.resolve_scale(size='independent'), use_container_width=True
+    )
     # st.altair_chart(trend_chart, use_container_width=True)
 
     with st.expander('Show Dataframe'):
