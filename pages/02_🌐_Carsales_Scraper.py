@@ -23,6 +23,19 @@ def do_search(
     options = Options()
     # options.headless = True
     driver = webdriver.Firefox(options=options)
+    # driver.install_addon(
+    #     Path.cwd().joinpath(
+    #         'extensions',
+    #         'vpnetworks_proxy-2.9.2.xpi',
+    #     )
+    # )
+
+    driver.install_addon(
+        Path.cwd().joinpath(
+            'extensions',
+            'ublock_origin-1.46.0.xpi',
+        )
+    )
 
     print('Searching Carsales')
     driver.get(
@@ -86,7 +99,7 @@ def do_search(
         with st.expander(f'Page {current_page+1}'):
             st.text('\n'.join(titles))
 
-        progress_bar.progress(len(car_list) / num_search_results)
+        progress_bar.progress(min(1.0, len(car_list) / num_search_results))
         sleep_time = random.randrange(0, 2)
         time.sleep(sleep_time)   # to avoid being blocked as a bot
         driver.execute_script(
