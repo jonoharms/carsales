@@ -125,12 +125,8 @@ class NovatedLease:
         )
 
         self.annual_repayment_full = (
-            sum(
-                [
-                    self.annual_repayment_before_tax,
-                    self.annual_repayment_post_tax,
-                ]
-            )
+            self.annual_repayment_before_tax
+            + self.annual_repayment_post_tax
             - self.annual_tax_saving
         )
 
