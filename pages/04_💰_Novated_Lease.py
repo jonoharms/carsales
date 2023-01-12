@@ -36,6 +36,7 @@ class Car:
     accessories_price_ex_gst: Decimal
     delivery_charges_ex_gst: Decimal
     is_electric: bool
+    annual_running_costs: Decimal
 
     stamp_duty: Decimal = field(init=False)
 
@@ -143,7 +144,6 @@ class NovatedLease:
 def main():
     st.set_page_config(page_title='Novated Lease Calculator', layout='wide')
     st.write('# Novated Lease Calculator')
-    # getcontext().prec = 2
 
     interest_rate = D(
         st.sidebar.slider('Interest Rate', 1.0, 15.0, value=9.39, step=0.01)
@@ -161,6 +161,7 @@ def main():
         accessories_price_ex_gst=D(0.0),
         delivery_charges_ex_gst=D(2246),
         is_electric=False,
+        annual_running_costs=D(860),
     )
 
     model_y = Car(
@@ -170,6 +171,7 @@ def main():
         accessories_price_ex_gst=D(0.0),
         delivery_charges_ex_gst=D(1800 / 1.1),
         is_electric=True,
+        annual_running_costs=D(860),
     )
 
     nvs = [
