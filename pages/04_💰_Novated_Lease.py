@@ -19,8 +19,11 @@ RESIDUAL = {
     5: D(28.13),
 }
 
+TAX_RATE = D(0.325, '0.001')
+MEDICARE_RATE = D(0.02, '0.01')
 
-def spaced_line(name: str, number: D):
+
+def spaced_line(name: str, number: Decimal):
     spaces = 40 - len(name)
     return '**' + name + ':**' + '&nbsp;' * spaces + f'{number:,.2f}'
 
@@ -32,10 +35,12 @@ class Car:
     base_price_ex_gst: Decimal
     accessories_price_ex_gst: Decimal
     delivery_charges_ex_gst: Decimal
-    stamp_duty: Decimal
+    is_electric: bool
+
+    stamp_duty: Decimal = field(init=False)
 
     total_price_inc_gst: Decimal = field(init=False)
-    drive_away_price: Decimal = field(init=False)
+    total_price_inc_gst_and_sd: Decimal = field(init=False)
     total_price_ex_gst: Decimal = field(init=False)
     gst: Decimal = field(init=False)
 
@@ -51,7 +56,10 @@ class Car:
         )
         self.gst = self.total_price_ex_gst * D(0.1)
         self.total_price_inc_gst = D(self.total_price_ex_gst + self.gst)
-        self.drive_away_price = D(self.total_price_inc_gst + self.stamp_duty)
+        self.stamp_duty = D(self.total_price_inc_gst * D(8.4) / D(200))
+        self.total_price_inc_gst_and_sd = D(
+            self.total_price_inc_gst + self.stamp_duty
+        )
 
 
 @define
@@ -63,11 +71,20 @@ class NovatedLease:
     financed_amount: Decimal = field(init=False)
     residual_amount_ex_gst: Decimal = field(init=False)
     residual_amount_inc_gst: Decimal = field(init=False)
-    monthly_repayment: Decimal = field(init=False)
-    annual_repayment: Decimal = field(init=False)
+    monthly_lease: Decimal = field(init=False)
+    annual_lease: Decimal = field(init=False)
     total_purchase_cost: Decimal = field(init=False)
+    fbt: Decimal = field(init=False)
+    fbt_taxable_value: Decimal = field(init=False)
+    annual_repayment_before_tax: Decimal = field(init=False)
+    annual_repayment_post_tax: Decimal = field(init=False)
+    annual_tax_saving: Decimal = field(init=False)
+    annual_repayment_full: Decimal = field(init=False)
 
     def __attrs_post_init__(self):
+        self.fbt_taxable_value = D(self.car.total_price_inc_gst * D(0.2))
+        self.fbt = D(self.fbt_taxable_value * D(2.0802 * 0.47, '0.0001'))
+
         self.financed_amount = (
             self.car.total_price_ex_gst + self.car.stamp_duty
         )
@@ -77,7 +94,7 @@ class NovatedLease:
         self.residual_amount_inc_gst = D(
             D(self.residual_amount_ex_gst) * D(1.1)
         )
-        self.monthly_repayment = D(
+        self.monthly_lease = D(
             npf.pmt(
                 float(self.interest_rate) / 12,
                 self.lease_term * 12,
@@ -91,10 +108,34 @@ class NovatedLease:
             / 12
         )   # principal+interest on lease portion, interest only on residual
 
-        self.annual_repayment = D(self.monthly_repayment * 12)
+        self.annual_lease = D(self.monthly_lease * 12)
+
+        self.annual_repayment_before_tax = (
+            self.annual_lease
+            if self.car.is_electric
+            else self.annual_lease - self.fbt_taxable_value
+        )
+
+        self.annual_repayment_post_tax = (
+            D(0.0) if self.car.is_electric else self.fbt_taxable_value
+        )
+
+        self.annual_tax_saving = D(
+            self.annual_repayment_before_tax * (TAX_RATE + MEDICARE_RATE)
+        )
+
+        self.annual_repayment_full = (
+            sum(
+                [
+                    self.annual_repayment_before_tax,
+                    self.annual_repayment_post_tax,
+                ]
+            )
+            - self.annual_tax_saving
+        )
 
         self.total_purchase_cost = D(
-            self.annual_repayment * self.lease_term
+            self.annual_repayment_full * self.lease_term
             + self.residual_amount_inc_gst
         )
 
@@ -120,19 +161,19 @@ def main():
     outback = Car(
         make='Subaru',
         model='Outback',
-        base_price_ex_gst=D(45000.0),
-        accessories_price_ex_gst=D(2000.0),
-        delivery_charges_ex_gst=D(1722.73),
-        stamp_duty=D(1179.00),
+        base_price_ex_gst=D(42690.0 / 1.1),
+        accessories_price_ex_gst=D(0.0),
+        delivery_charges_ex_gst=D(2246),
+        is_electric=False,
     )
 
     model_y = Car(
         make='Tesla',
         model='Model Y',
-        base_price_ex_gst=D(69800 * 0.9),
-        accessories_price_ex_gst=D(500.0),
-        delivery_charges_ex_gst=D(1800 * 0.9),
-        stamp_duty=D(3966.0),
+        base_price_ex_gst=D(68900 / 1.1),
+        accessories_price_ex_gst=D(0.0),
+        delivery_charges_ex_gst=D(1800 / 1.1),
+        is_electric=True,
     )
 
     nvs = [
@@ -141,9 +182,6 @@ def main():
     ]
 
     nvs_dict = [flatdict.FlatDict(asdict(nv)) for nv in nvs]
-
-    # print(repr(nv))
-
     st.write(pd.DataFrame.from_records(nvs_dict, index='name').transpose())
 
 
