@@ -52,7 +52,7 @@ def main():
     st.sidebar.markdown("""---""")
     trendline_type = st.sidebar.selectbox(
         'Trendline Type',
-        ['linear', 'quad', 'poly', 'log', 'exp', 'pow', 'loess', None],
+        ['loess', 'linear', 'quad', 'poly', 'log', 'exp', 'pow', None],
     )
     trendline_order = 3
     if trendline_type == 'poly':
@@ -72,6 +72,7 @@ def main():
         'year',
         'state',
         'id',
+        'engine',
     ]
     brush = alt.selection_interval()  # selection of type "interval"
     width = 800 / len(x_cols)
