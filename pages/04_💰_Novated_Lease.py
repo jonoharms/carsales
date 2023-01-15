@@ -68,6 +68,7 @@ class NovatedLease:
     car: Car
     interest_rate: Decimal
     lease_term: int
+
     name: str = field(init=False)
     financed_amount: Decimal = field(init=False)
     residual_amount_ex_gst: Decimal = field(init=False)
@@ -81,6 +82,8 @@ class NovatedLease:
     annual_repayment_post_tax: Decimal = field(init=False)
     annual_tax_saving: Decimal = field(init=False)
     annual_repayment_full: Decimal = field(init=False)
+    monthly_repayment_full: Decimal = field(init=False)
+    fortnightly_repayment_full: Decimal = field(init=False)
 
     def __attrs_post_init__(self):
         self.fbt_taxable_value = D(self.car.total_price_inc_gst * D(0.2))
@@ -131,6 +134,9 @@ class NovatedLease:
             - self.annual_tax_saving
         )
 
+        self.monthly_repayment_full = D(self.annual_repayment_full / D(12))
+        self.fortnightly_repayment_full = D(self.annual_repayment_full / D(26))
+
         self.total_purchase_cost = D(
             self.annual_repayment_full * self.lease_term
             + self.residual_amount_inc_gst
@@ -174,9 +180,20 @@ def main():
         annual_running_costs=D(860),
     )
 
+    model_y_smartlease = Car(
+        make='Tesla',
+        model='Model Y Smart Lease',
+        base_price_ex_gst=D(82000 / 1.1),
+        accessories_price_ex_gst=D(4000.0),
+        delivery_charges_ex_gst=D(1800 / 1.1),
+        is_electric=True,
+        annual_running_costs=D(860),
+    )
+
     nvs = [
         NovatedLease(outback, interest_rate, lease_term),
         NovatedLease(model_y, interest_rate, lease_term),
+        NovatedLease(model_y_smartlease, interest_rate, lease_term),
     ]
 
     nvs_dict = [flatdict.FlatDict(asdict(nv)) for nv in nvs]
