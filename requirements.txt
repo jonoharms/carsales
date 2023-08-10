@@ -11,3 +11,7 @@ watchdog
 scikit-learn
 statsmodels
 pillow
+altair
+numpy-financial
+flatdict
+tabulate

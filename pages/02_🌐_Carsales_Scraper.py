@@ -18,11 +18,24 @@ import random
 
 def do_search(
     min_year: Optional[int], max_year: Optional[int], make: str, model: str
-) -> list[Car]:
+) -> Optional[pd.DataFrame]:
 
     options = Options()
-    options.headless = True
+    # options.headless = True
     driver = webdriver.Firefox(options=options)
+    # driver.install_addon(
+    #     Path.cwd().joinpath(
+    #         'extensions',
+    #         'vpnetworks_proxy-2.9.2.xpi',
+    #     )
+    # )
+
+    driver.install_addon(
+        Path.cwd().joinpath(
+            'extensions',
+            'ublock_origin-1.46.0.xpi',
+        )
+    )
 
     print('Searching Carsales')
     driver.get(
@@ -48,7 +61,7 @@ def do_search(
 
         driver.save_screenshot('error.png')
         st.image('error.png')
-        return []
+        return None
 
     title = title[0]
 
@@ -62,11 +75,11 @@ def do_search(
         st.error(
             f"Found {num_search_results} results, carsales doesn't like over 1000, try splitting the search."
         )
-        return []
+        return None
 
     if num_search_results == 0:
         st.error(f'found no results, try again.')
-        return []
+        return None
 
     st.info(f'Found {num_search_results} results, scraping details...')
 
@@ -86,9 +99,12 @@ def do_search(
         with st.expander(f'Page {current_page+1}'):
             st.text('\n'.join(titles))
 
-        progress_bar.progress(len(car_list) / num_search_results)
-        sleep_time = random.randrange(3, 10)
+        progress_bar.progress(min(1.0, len(car_list) / num_search_results))
+        sleep_time = random.randrange(0, 2)
         time.sleep(sleep_time)   # to avoid being blocked as a bot
+        driver.execute_script(
+            'window.scrollTo(0, document.body.scrollHeight);'
+        )
         if len(car_list) < num_search_results:
             pagination_div = driver.find_elements(
                 By.CSS_SELECTOR, 'ul.pagination'
@@ -116,43 +132,41 @@ def do_search(
     driver.close()
     dict_list = [asdict(car) for car in car_list]
     df = pd.DataFrame.from_records(dict_list)
-    st.session_state['cars_df'] = df
-    return car_list
+
+    return df
 
 
 def main():
+    st.set_page_config(page_title='Carsales Scraper', layout='wide')
     st.write('# Carsales Scraper')
 
-    make = st.sidebar.text_input('Make')
-    model = st.sidebar.text_input('Model')
+    with st.sidebar.form(key='search'):
+        make = st.text_input('Make')
+        model = st.text_input('Model')
 
-    next_year = datetime.date.today().year + 1
-    year_range = range(next_year, 1990, -1)
-    min_year = st.sidebar.selectbox('Min Year', year_range, index=4)
-    max_year = st.sidebar.selectbox('Max Year', year_range, index=0)
+        next_year = datetime.date.today().year + 1
+        year_range = range(next_year, 1990, -1)
+        min_year = st.selectbox('Min Year', year_range, index=4)
+        max_year = st.selectbox('Max Year', year_range, index=0)
 
-    if st.sidebar.button('Do Search'):
-        do_search(min_year, max_year, make, model)
+        submit_button = st.form_submit_button('Do Search')
 
-    if 'cars_df' in st.session_state:
-        df = st.session_state['cars_df']
-        st.dataframe(df)
-        filename = '_'.join(
-            [
-                make.lower(),
-                model.lower(),
-                str(min_year),
-                str(max_year),
-            ]
-        ).replace(' ', '_')
-        path = Path.cwd().joinpath('data', filename).with_suffix('.csv')
-        st.sidebar.markdown("""---""")
-        st.sidebar.markdown('## Save File')
-        if path.exists():
-            st.sidebar.markdown(
-                f'{filename} already exists. This will overwrite.'
-            )
-        if st.sidebar.button('Save to CSV'):
+    if submit_button:
+        df = do_search(min_year, max_year, make, model)
+        if df is not None:
+
+            filename = '_'.join(
+                [
+                    make.lower(),
+                    model.lower(),
+                    str(min_year),
+                    str(max_year),
+                ]
+            ).replace(' ', '_')
+
+            path = Path.cwd().joinpath('data', filename).with_suffix('.csv')
+            st.success('Search Complete')
+            st.dataframe(df)
             if not path.parent.exists():
                 path.parent.mkdir()
             df.to_csv(path)
