@@ -36,5 +36,7 @@ RUN git clone https://github.com/jonoharms/carsales.git
 
 RUN pip3 install -r carsales/requirements.txt
 
+WORKDIR /app/carsales
+
 # ENTRYPOINT ["streamlit", "run", "carsales/01_🏠_Home.py", "--server.port", ${PORT}, "--server.address", "0.0.0.0"]
-CMD ["sh", "-c", "streamlit run --server.port $PORT --server.address 0.0.0.0 carsales/01_🏠_Home.py"]
+CMD ["sh", "-c", "streamlit run --server.port $PORT --server.address 0.0.0.0 01_🏠_Home.py"]
