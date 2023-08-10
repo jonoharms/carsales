@@ -11,13 +11,20 @@ import datetime
 import altair as alt
 
 
+def format_func(path: Path):
+    return Path(path).name
+
+
 def main():
     st.set_page_config(page_title='Scatter Plot', layout='wide')
     st.write('# Carsales Analyser')
     st.write('⌘/^ click to open carsales page in new tab')
     data = Path.cwd().joinpath('data').resolve()
     files = glob.glob(str(data) + '/*.csv')
-    dataframes = [pd.read_csv(file, index_col=0) for file in files]
+    files_selected = st.sidebar.multiselect(
+        'Choose files', files, default=files, format_func=format_func
+    )
+    dataframes = [pd.read_csv(file, index_col=0) for file in files_selected]
     df = (
         pd.concat(dataframes, axis=0)
         .drop_duplicates(subset=['id'])
