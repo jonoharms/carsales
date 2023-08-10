@@ -21,14 +21,14 @@ def do_search(
 ) -> Optional[pd.DataFrame]:
 
     options = Options()
-    # options.headless = True
+    options.headless = True
     driver = webdriver.Firefox(options=options)
-    # driver.install_addon(
-    #     Path.cwd().joinpath(
-    #         'extensions',
-    #         'vpnetworks_proxy-2.9.2.xpi',
-    #     )
-    # )
+    driver.install_addon(
+        Path.cwd().joinpath(
+            'extensions',
+            'vpnetworks_proxy-2.9.2.xpi',
+        )
+    )
 
     driver.install_addon(
         Path.cwd().joinpath(
