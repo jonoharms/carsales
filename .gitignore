@@ -1,5 +1,5 @@
 *.png
-data/
+data/bak
 .DS_store
 # Byte-compiled / optimized / DLL files
 __pycache__/

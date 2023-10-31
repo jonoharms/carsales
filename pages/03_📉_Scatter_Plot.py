@@ -97,7 +97,10 @@ def main():
         .properties(width=width, height=400)
     )
 
-    points_charts = list(base_chart.encode(x=col + ':Q') for col in x_cols)
+    points_charts = list(
+        base_chart.encode(x=alt.X(col + ':Q', scale=alt.Scale(zero=False)))
+        for col in x_cols
+    )
     trend_charts = None
     if trendline_type:
         groupby = [color_by] if trendline_scope == 'trace' else []
